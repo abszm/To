@@ -1,0 +1,71 @@
+from __future__ import annotations
+
+import io
+from pathlib import Path
+
+from src.config import AppConfig
+from src.web import create_app
+
+
+class FakeTranscoder:
+    def __init__(self, output_dir: Path):
+        self.output_dir = output_dir
+
+    def transcode(self, _input_path: Path) -> Path:
+        out = self.output_dir / "fake-output.m4a"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"fake")
+        return out
+
+
+class FakeMetadata:
+    def verify_and_fix(self, _source, _target) -> None:
+        return None
+
+
+def test_upload_page_contains_form(tmp_path: Path):
+    cfg = AppConfig(input_dir=str(tmp_path / "input"), output_dir=str(tmp_path / "output"))
+    app = create_app(app_config=cfg)
+    client = app.test_client()
+
+    response = client.get("/")
+    assert response.status_code == 200
+    text = response.get_data(as_text=True)
+    assert "上传并转码" in text
+
+
+def test_upload_then_show_download_button(tmp_path: Path):
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    cfg = AppConfig(input_dir=str(input_dir), output_dir=str(output_dir), delete_source=False)
+    app = create_app(
+        app_config=cfg,
+        transcoder=FakeTranscoder(output_dir=output_dir),
+        metadata_handler=FakeMetadata(),
+    )
+    client = app.test_client()
+
+    data = {
+        "audio": (io.BytesIO(b"RIFF....WAVE"), "sample.wav"),
+    }
+    response = client.post("/upload", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    text = response.get_data(as_text=True)
+    assert "下载转码文件" in text
+    assert "/download/fake-output.m4a" in text
+
+
+def test_download_output_file(tmp_path: Path):
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    file_path = output_dir / "demo.m4a"
+    file_path.write_bytes(b"demo")
+
+    cfg = AppConfig(input_dir=str(input_dir), output_dir=str(output_dir))
+    app = create_app(app_config=cfg)
+    client = app.test_client()
+
+    response = client.get("/download/demo.m4a")
+    assert response.status_code == 200
+    assert response.data == b"demo"
