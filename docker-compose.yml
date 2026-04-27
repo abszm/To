@@ -15,12 +15,16 @@ services:
     environment:
       INPUT_DIR: /input
       OUTPUT_DIR: /output
+      APP_MODE: ${APP_MODE:-web}
       CONVERT_FORMAT: ${CONVERT_FORMAT:-aac}
       BITRATE: ${BITRATE:-320k}
       MAX_THREADS: ${MAX_THREADS:-2}
       DELETE_SOURCE: ${DELETE_SOURCE:-false}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       RETRY_LIMIT: ${RETRY_LIMIT:-3}
+      PORT: ${PORT:-8080}
+    ports:
+      - "8080:8080"
     logging:
       driver: json-file
       options:

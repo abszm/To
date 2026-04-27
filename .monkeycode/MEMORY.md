@@ -54,3 +54,11 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
 - Instructions:
   - 集成测试命令为 `./scripts/run_integration_tests.sh`，用 `pytest -m integration` 运行
   - 可通过环境变量 `REAL_AUDIO_SAMPLE` 指向真实音频文件以启用真实样本测试
+
+[音频转码项目 Web 运行方式]
+- Date: 2026-04-27
+- Context: Agent 在执行“增加上传入口与下载按钮”任务时发现
+- Category: 构建方法
+- Instructions:
+  - 默认运行模式为 `APP_MODE=web`，入口命令为 `python3 -m src.web`
+  - 容器中可通过 `PORT` 指定 Web 端口，默认 `8080`
