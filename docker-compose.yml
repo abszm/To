@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  audio-transcoder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: audio-transcoder:latest
+    container_name: audio-transcoder
+    restart: unless-stopped
+    cpus: 1.0
+    volumes:
+      - ./input:/input
+      - ./output:/output
+    environment:
+      INPUT_DIR: /input
+      OUTPUT_DIR: /output
+      CONVERT_FORMAT: ${CONVERT_FORMAT:-aac}
+      BITRATE: ${BITRATE:-320k}
+      MAX_THREADS: ${MAX_THREADS:-2}
+      DELETE_SOURCE: ${DELETE_SOURCE:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      RETRY_LIMIT: ${RETRY_LIMIT:-3}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=100M
