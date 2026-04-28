@@ -25,7 +25,7 @@ def test_build_command_for_aac(tmp_path: Path):
 def test_transcode_rejects_unsupported_ext(tmp_path: Path):
     transcoder = Transcoder(str(tmp_path), str(tmp_path))
     with pytest.raises(TranscodeError):
-        transcoder.transcode(tmp_path / "test.mp3")
+        transcoder.transcode(tmp_path / "test.txt")
 
 
 def test_transcode_success_calls_ffmpeg(tmp_path: Path):

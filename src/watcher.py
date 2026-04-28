@@ -16,7 +16,7 @@ from .transcoder import Transcoder
 
 
 class AudioFileHandler(FileSystemEventHandler):
-    SUPPORTED_EXTENSIONS = {".flac", ".wav", ".ogg", ".opus"}
+    SUPPORTED_EXTENSIONS = Transcoder.SUPPORTED_EXTENSIONS
 
     def __init__(self, queue_manager: QueueManager, log) -> None:
         self.queue_manager = queue_manager

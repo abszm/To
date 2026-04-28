@@ -13,7 +13,25 @@ from .metadata import MetadataHandler
 from .transcoder import TranscodeError, Transcoder
 
 
-def _render_page(message: str = "", download_path: str = "") -> str:
+SUPPORTED_EXTENSIONS_TEXT = "/".join(ext[1:].upper() for ext in sorted(Transcoder.SUPPORTED_EXTENSIONS))
+SUPPORTED_EXTENSIONS_ACCEPT = ",".join(sorted(Transcoder.SUPPORTED_EXTENSIONS))
+OUTPUT_FORMAT_OPTIONS = {
+    "aac": "AAC (.m4a)",
+    "alac": "ALAC (.m4a)",
+    "mp3": "MP3 (.mp3)",
+    "opus": "Opus (.opus)",
+    "flac": "FLAC (.flac)",
+    "wav": "WAV (.wav)",
+    "ogg": "OGG Vorbis (.ogg)",
+}
+
+
+def _render_page(
+    message: str = "",
+    download_path: str = "",
+    selected_output_format: str = "aac",
+    bitrate: str = "320k",
+) -> str:
     button_block = ""
     if download_path:
         button_block = (
@@ -24,6 +42,14 @@ def _render_page(message: str = "", download_path: str = "") -> str:
         )
 
     message_block = f'<p class="msg">{message}</p>' if message else ""
+    options = "".join(
+        (
+            f'<option value="{key}"'
+            + (" selected" if key == selected_output_format else "")
+            + f'>{label}</option>'
+        )
+        for key, label in OUTPUT_FORMAT_OPTIONS.items()
+    )
 
     return f"""<!doctype html>
 <html lang="zh-CN">
@@ -89,9 +115,11 @@ def _render_page(message: str = "", download_path: str = "") -> str:
 <body>
   <main class="card">
     <h1>音频转码</h1>
-    <p class="desc">上传 FLAC/WAV/OGG/OPUS，转码后会显示下载按钮。</p>
+    <p class="desc">支持常见音频格式（{SUPPORTED_EXTENSIONS_TEXT}），可选择目标格式后转码并下载。</p>
     <form method="post" action="/upload" enctype="multipart/form-data">
-      <input type="file" name="audio" accept=".flac,.wav,.ogg,.opus" required />
+      <input type="file" name="audio" accept="{SUPPORTED_EXTENSIONS_ACCEPT}" required />
+      <select name="output_format" required>{options}</select>
+      <input type="text" name="bitrate" value="{bitrate}" placeholder="码率，如 320k" />
       <button type="submit">上传并转码</button>
     </form>
     {message_block}
@@ -132,19 +160,50 @@ def create_app(
 
     @app.get("/")
     def index() -> Response:
-        return Response(_render_page(), mimetype="text/html")
+        return Response(
+            _render_page(
+                selected_output_format=config.convert_format,
+                bitrate=config.bitrate,
+            ),
+            mimetype="text/html",
+        )
 
     @app.post("/upload")
     def upload() -> Response:
         file = request.files.get("audio")
+        chosen_output = request.form.get("output_format", config.convert_format).strip().lower()
+        chosen_bitrate = request.form.get("bitrate", config.bitrate).strip() or config.bitrate
+
         if file is None or file.filename is None or file.filename.strip() == "":
-            return Response(_render_page(message="请选择要上传的音频文件。"), mimetype="text/html")
+            return Response(
+                _render_page(
+                    message="请选择要上传的音频文件。",
+                    selected_output_format=chosen_output,
+                    bitrate=chosen_bitrate,
+                ),
+                mimetype="text/html",
+            )
+
+        if chosen_output not in Transcoder.supported_output_formats():
+            choices = ", ".join(Transcoder.supported_output_formats())
+            return Response(
+                _render_page(
+                    message=f"输出格式不支持，请选择: {choices}",
+                    selected_output_format=config.convert_format,
+                    bitrate=chosen_bitrate,
+                ),
+                mimetype="text/html",
+            )
 
         filename = secure_filename(file.filename)
         suffix = Path(filename).suffix.lower()
         if suffix not in Transcoder.SUPPORTED_EXTENSIONS:
             return Response(
-                _render_page(message="仅支持 .flac/.wav/.ogg/.opus 文件。"),
+                _render_page(
+                    message=f"仅支持以下常见音频格式: {SUPPORTED_EXTENSIONS_TEXT}",
+                    selected_output_format=chosen_output,
+                    bitrate=chosen_bitrate,
+                ),
                 mimetype="text/html",
             )
 
@@ -153,19 +212,34 @@ def create_app(
         file.save(stored_path)
 
         try:
-            output_path = trans.transcode(stored_path)
+            output_path = trans.transcode(
+                stored_path,
+                output_format=chosen_output,
+                bitrate=chosen_bitrate,
+            )
             meta.verify_and_fix(stored_path, output_path)
             logger.info("网页转码成功: %s -> %s", stored_path, output_path)
         except (TranscodeError, RuntimeError, OSError) as exc:
             logger.error("网页转码失败: %s", exc)
-            return Response(_render_page(message=f"转码失败: {exc}"), mimetype="text/html")
+            return Response(
+                _render_page(
+                    message=f"转码失败: {exc}",
+                    selected_output_format=chosen_output,
+                    bitrate=chosen_bitrate,
+                ),
+                mimetype="text/html",
+            )
         finally:
             if config.delete_source:
                 stored_path.unlink(missing_ok=True)
 
         download_name = output_path.name
         return Response(
-            _render_page(download_path=f"/download/{download_name}"),
+            _render_page(
+                download_path=f"/download/{download_name}",
+                selected_output_format=chosen_output,
+                bitrate=chosen_bitrate,
+            ),
             mimetype="text/html",
         )
 

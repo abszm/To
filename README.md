@@ -4,7 +4,7 @@
 
 ## 功能
 
-- 支持输入格式：`.flac`、`.wav`、`.ogg`、`.opus`
+- 支持常见输入格式：`.flac`、`.wav`、`.ogg`、`.opus`、`.mp3`、`.m4a`、`.aac`、`.wma`、`.aiff`、`.aif`、`.amr`、`.ape`、`.mka`、`.webm`、`.ac3`
 - 支持输出编码：`aac`（`libfdk_aac`）和 `alac`
 - 支持并发队列与失败重试（默认最多 3 次）
 - 转码后校验输出文件有效性（存在且大小 > 0）
